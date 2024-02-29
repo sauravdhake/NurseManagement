@@ -1,3 +1,4 @@
+// DataTable.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { DataGrid } from '@mui/x-data-grid';
@@ -7,24 +8,84 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import { CSVLink } from 'react-csv';
 import * as XLSX from 'xlsx';
-import stringify from 'csv-stringify';
 
-const columns = [
-  { field: '_id', headerName: 'ID', width: 200 },
-  { field: 'name', headerName: 'Name', width: 150 },
-  { field: 'licenseNumber', headerName: 'License Number', width: 200 },
-  { field: 'dob', headerName: 'DOB', width: 150 },
-  { field: 'age', headerName: 'Age', width: 100 },
-];
+
+// const handleOpenEditDialog = (id) => {
+//   setEditNurseId(id);
+//   setOpenEditDialog(true);
+//   const selectedNurse = rows.find((nurse) => nurse._id === id);
+//   setFormData(selectedNurse);
+// };
+// const columns = [
+//   { field: '_id', headerName: 'ID', width: 200 },
+//   { field: 'name', headerName: 'Name', width: 150 },
+//   { field: 'licenseNumber', headerName: 'License Number', width: 200 },
+//   { field: 'dob', headerName: 'DOB', width: 150 },
+//   { field: 'age', headerName: 'Age', width: 100 },
+//   {
+//     field: 'edit',
+//     headerName: 'Edit',
+//     width: 100,
+//     renderCell: (params) => (
+//       <Button
+//         variant="outlined"
+//         onClick={() => handleOpenEditDialog(params.row._id)}
+//       >
+//         Edit
+//       </Button>
+//     ),
+//   },
+// ];
 
 const DataTable = () => {
   const [rows, setRows] = useState([]);
+  const [selectionModel, setSelectionModel] = useState([]);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [editNurseId, setEditNurseId] = useState(null);
   const [formData, setFormData] = useState({ name: '', licenseNumber: '', dob: '', age: '' });
 
+  const handleOpenEditDialog = (id) => {
+  setEditNurseId(id);
+  setOpenEditDialog(true);
+  const selectedNurse = rows.find((nurse) => nurse._id === id);
+  setFormData(selectedNurse);
+};
+  const columns = [
+    { field: '_id', headerName: 'ID', width: 200 },
+    { field: 'name', headerName: 'Name', width: 150 },
+    { field: 'licenseNumber', headerName: 'License Number', width: 200 },
+    { field: 'dob', headerName: 'DOB', width: 150 },
+    { field: 'age', headerName: 'Age', width: 100 },
+    {
+      field: 'edit',
+      headerName: 'Edit',
+      width: 100,
+      renderCell: (params) => (
+        <Button
+          variant="outlined"
+          onClick={() => handleOpenEditDialog(params.row._id)}
+        >
+          Edit
+        </Button>
+      ),
+    },
+    {
+      field: 'delete',
+      headerName: 'Delete',
+      width: 100,
+      renderCell: (params) => (
+        <Button
+          variant="outlined"
+          onClick={() => handleDeleteNurse(params.row._id)}
+        >
+          Delete
+        </Button>
+      ),
+    },
+  ];
   useEffect(() => {
     fetchNurses();
   }, []);
@@ -32,7 +93,8 @@ const DataTable = () => {
   const fetchNurses = async () => {
     try {
       const response = await axios.get('http://localhost:5000/api/nurses');
-      setRows(response.data);
+      const nursesWithId = response.data.map((nurse) => ({ ...nurse, id: nurse._id }));
+      setRows(nursesWithId);
     } catch (error) {
       console.error('Error fetching nurses:', error);
     }
@@ -47,12 +109,7 @@ const DataTable = () => {
     setFormData({ name: '', licenseNumber: '', dob: '', age: '' });
   };
 
-  const handleOpenEditDialog = (id) => {
-    setEditNurseId(id);
-    setOpenEditDialog(true);
-    const selectedNurse = rows.find((nurse) => nurse._id === id);
-    setFormData(selectedNurse);
-  };
+
 
   const handleCloseEditDialog = () => {
     setOpenEditDialog(false);
@@ -84,11 +141,15 @@ const DataTable = () => {
     }
   };
 
-  const handleDeleteNurse = async (id) => {
+  const handleDeleteNurse = async (editNurseId) => {
     try {
-      await axios.delete(`http://localhost:5000/api/nurses/${id}`);
-      fetchNurses();
-      alert('Nurse deleted successfully!');
+      if (editNurseId) {
+        await axios.delete(`http://localhost:5000/api/nurses/${editNurseId}`);
+        fetchNurses();
+        alert('Nurse deleted successfully!');
+      } else {
+        alert('Please select a nurse to delete.');
+      }
     } catch (error) {
       console.error('Error deleting nurse:', error);
       alert('Error deleting nurse. Please try again.');
@@ -103,19 +164,13 @@ const DataTable = () => {
   };
 
   const handleDownloadCSV = () => {
-    stringify(rows, { header: true }, (err, output) => {
-      if (err) {
-        console.error('Error generating CSV:', err);
-        return;
-      }
-      const blob = new Blob([output], { type: 'text/csv;charset=utf-8' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'nurses.csv';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
+    return rows.map((nurse) => ({
+      ID: nurse.id,
+      Name: nurse.name,
+      'License Number': nurse.licenseNumber,
+      DOB: nurse.dob,
+      Age: nurse.age,
+    }));
   };
 
   return (
@@ -126,15 +181,28 @@ const DataTable = () => {
       <Button variant="outlined" onClick={handleDownloadXLSX}>
         Download XLSX
       </Button>
-      <Button variant="outlined" onClick={handleDownloadCSV}>
-        Download CSV
-      </Button>
-      <DataGrid rows={rows} columns={columns} pageSize={5} checkboxSelection />
+      <CSVLink data={handleDownloadCSV()} filename="nurses.csv">
+        <Button variant="outlined">Download CSV</Button>
+      </CSVLink>
+
+      <DataGrid
+        rows={rows}
+        columns={columns}
+        pageSize={5}
+        checkboxSelection
+        selectionModel={selectionModel}
+        onSelectionModelChange={(newSelection) => {
+          setSelectionModel(newSelection);
+          const selectedNurseId = newSelection.length > 0 ? newSelection[0] : null;
+          setEditNurseId(selectedNurseId);
+        }}
+      />
+
+
       {/* Add Nurse Dialog */}
       <Dialog open={openAddDialog} onClose={handleCloseAddDialog}>
         <DialogTitle>Add Nurse</DialogTitle>
         <DialogContent>
-          {/* Add form fields here */}
           <TextField
             label="Name"
             name="name"
@@ -165,11 +233,11 @@ const DataTable = () => {
           <Button onClick={handleAddNurse}>Add</Button>
         </DialogActions>
       </Dialog>
+
       {/* Edit Nurse Dialog */}
       <Dialog open={openEditDialog} onClose={handleCloseEditDialog}>
         <DialogTitle>Edit Nurse</DialogTitle>
         <DialogContent>
-          {/* Edit form fields here */}
           <TextField
             label="Name"
             name="name"

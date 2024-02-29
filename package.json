@@ -16,10 +16,13 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
+    "stream": "^0.0.2",
     "stream-browserify": "^3.0.0",
     "styled-components": "^6.1.8",
     "web-vitals": "^2.1.4",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "buffer": "^6.0.3",
+    "react-csv": "^2.2.2"
   },
   "scripts": {
     "start": "react-scripts start",
